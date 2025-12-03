@@ -1,0 +1,23 @@
+{
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "tailwindCSS.experimental.classRegex": [
+    "class:\\s*?['\"]([^'\"]*)['\"]",
+    "className\\s*?:\\s*?['\"]([^'\"]*)['\"]",
+    "cn\\(([^)]*)\\)"
+  ],
+  "emmet.includeLanguages": {
+    "javascript": "javascriptreact",
+    "typescript": "typescriptreact"
+  },
+  "css.validate": false,
+  "scss.validate": false,
+  "less.validate": false
+}
