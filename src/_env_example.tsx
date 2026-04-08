@@ -20,5 +20,10 @@ VITE_GITHUB_URL=
 # Analytics (Optional)
 VITE_GA_TRACKING_ID=
 
+# DeepSeek (local dev: Vite proxies /api/deepseek-chat; never use VITE_ for the API key)
+DEEPSEEK_API_KEY=
+
+# Production: also set DEEPSEEK_API_KEY in Supabase Edge Function secrets for /chat/ai
+
 # Development
 NODE_ENV=production

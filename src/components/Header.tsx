@@ -3,6 +3,7 @@ import { Menu, X, Sun, Moon, Code, Globe, Shield, Gamepad2, Cloud, Smartphone, S
 import { useState, useEffect } from "react";
 import AnimatedLogo from "./AnimatedLogo";
 import ThemeToggle from "./ThemeToggle";
+import { cn } from "./ui/utils";
 
 interface HeaderProps {
   currentPage?: string;
@@ -21,15 +22,16 @@ export default function Header({
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
-    // Handle scroll effect
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+      const y = window.scrollY || document.documentElement.scrollTop;
+      setIsScrolled(y > 32);
     };
 
-    window.addEventListener('scroll', handleScroll);
-    
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
     return () => {
-      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener("scroll", handleScroll);
     };
   }, []);
 
@@ -37,6 +39,7 @@ export default function Header({
     { name: "Home", href: "#home", route: "home" },
     { name: "Services", href: "#services", route: "services" },
     { name: "Projects", href: "#projects", route: "projects" },
+    { name: "Our Work", href: "#work", route: "work" },
     { name: "About", href: "#about", route: "about" },
     { name: "Blog", href: "#blog", route: "blog" },
     { name: "Contact", href: "#contact", route: "contact" },
@@ -113,11 +116,14 @@ export default function Header({
   };
 
   return (
-    <header className={`fixed top-0 w-full z-50 transition-all duration-500 ${
-      isScrolled || currentPage !== 'home'
-        ? 'bg-background/95 backdrop-blur-xl border-b border-border/50 shadow-lg' 
-        : 'bg-transparent'
-    }`}>
+    <header
+      className={cn(
+        "fixed top-0 w-full z-50 transition-[background-color,box-shadow,border-color] duration-500 ease-out",
+        isScrolled || currentPage !== "home"
+          ? "header-glass-active"
+          : "border-b border-transparent bg-transparent shadow-none",
+      )}
+    >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
           <AnimatedLogo 

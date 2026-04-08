@@ -1,4 +1,8 @@
 // Zeus Logo Animation Constants
+
+/** Served from `public/logo.png` */
+export const LOGO_IMAGE_SRC = "/logo.png";
+
 export const LOGO_ANIMATIONS = {
   hover: {
     scale: 1.1,
@@ -43,8 +47,8 @@ export const SIZE_CONFIGS = {
     subtext: "text-xs"
   },
   md: {
-    logo: "w-10 h-10",
-    text: "text-lg",
+    logo: "w-12 h-12",
+    text: "text-xl",
     subtext: "text-xs"
   },
   lg: {

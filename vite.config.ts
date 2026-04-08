@@ -1,9 +1,11 @@
-
-  import { defineConfig } from 'vite';
+  import { defineConfig, loadEnv } from 'vite';
   import react from '@vitejs/plugin-react-swc';
   import path from 'path';
 
-  export default defineConfig({
+  export default defineConfig(({ mode }) => {
+    const env = loadEnv(mode, process.cwd(), '');
+
+    return {
     plugins: [react()],
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
@@ -17,7 +19,6 @@
         'next-themes@0.4.6': 'next-themes',
         'lucide-react@0.487.0': 'lucide-react',
         'input-otp@1.4.2': 'input-otp',
-        'figma:asset/dcf68d79f4c8a130a95c8ce6f948273175eadda7.png': path.resolve(__dirname, './src/assets/dcf68d79f4c8a130a95c8ce6f948273175eadda7.png'),
         'embla-carousel-react@8.6.0': 'embla-carousel-react',
         'cmdk@1.1.1': 'cmdk',
         'class-variance-authority@0.7.1': 'class-variance-authority',
@@ -59,5 +60,26 @@
     server: {
       port: 3000,
       open: true,
+      proxy: {
+        // Dev only: DeepSeek — must be before generic /api proxy
+        '/api/deepseek-chat': {
+          target: 'https://api.deepseek.com',
+          changeOrigin: true,
+          rewrite: () => '/chat/completions',
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq) => {
+              const key = env.DEEPSEEK_API_KEY || process.env.DEEPSEEK_API_KEY;
+              if (key) {
+                proxyReq.setHeader('Authorization', `Bearer ${key}`);
+              }
+            });
+          },
+        },
+        '/api': {
+          target: 'http://127.0.0.1:8787',
+          changeOrigin: true,
+        },
+      },
     },
+  };
   });

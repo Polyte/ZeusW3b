@@ -402,4 +402,44 @@ app.get("/make-server-62ba7f16/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// DeepSeek (OpenAI-compatible) proxy for production chat — set DEEPSEEK_API_KEY in Supabase Edge secrets
+app.post("/make-server-62ba7f16/chat/ai", async (c) => {
+  const apiKey = Deno.env.get("DEEPSEEK_API_KEY");
+  if (!apiKey) {
+    return c.json(
+      { error: { message: "DEEPSEEK_API_KEY is not configured on the server" } },
+      503,
+    );
+  }
+
+  try {
+    const body = await c.req.json();
+    const { messages, model, temperature, max_tokens } = body;
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return c.json({ error: { message: "messages array is required" } }, 400);
+    }
+
+    const upstream = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: typeof model === "string" && model.length ? model : "deepseek-chat",
+        messages,
+        temperature: typeof temperature === "number" ? temperature : 0.6,
+        max_tokens: typeof max_tokens === "number" ? max_tokens : 1024,
+      }),
+    });
+
+    const data = await upstream.json();
+    return c.json(data, upstream.ok ? 200 : 502);
+  } catch (error) {
+    console.log(`DeepSeek proxy error: ${error}`);
+    return c.json({ error: { message: "AI request failed" } }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

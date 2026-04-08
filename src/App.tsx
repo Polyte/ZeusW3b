@@ -8,6 +8,7 @@ import ProjectsPage from "./components/pages/ProjectsPage";
 import AboutPage from "./components/pages/AboutPage";
 import BlogPage from "./components/pages/BlogPage";
 import ContactPage from "./components/pages/ContactPage";
+import WorkPage from "./components/pages/WorkPage";
 import ProjectDemo from "./components/projects/ProjectDemo";
 import ProjectCaseStudy from "./components/projects/ProjectCaseStudy";
 import ProjectCode from "./components/projects/ProjectCode";
@@ -17,16 +18,15 @@ import NotificationSystem, { type Notification } from "./components/Notification
 import BookingSystem from "./components/BookingSystem";
 import CommandPalette from "./components/CommandPalette";
 import PerformanceMonitor from "./components/PerformanceMonitor";
-import ActivityFeed from "./components/ActivityFeed";
 import { useEffect, useState } from "react";
 import React from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 
 export default function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [currentPage, setCurrentPage] = useState('home');
   const [isLoading, setIsLoading] = useState(true);
-  const [pageTransition, setPageTransition] = useState(false);
+  const prefersReducedMotion = useReducedMotion() === true;
   
   // Advanced features state
   const [showSearch, setShowSearch] = useState(false);
@@ -53,15 +53,9 @@ export default function App() {
     // Handle routing based on hash
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1) || 'home';
-      if (hash !== currentPage && !isLoading) {
-        setPageTransition(true);
-        setTimeout(() => {
-          setCurrentPage(hash);
-          setPageTransition(false);
-          window.scrollTo(0, 0);
-        }, 300);
-      } else {
-        setCurrentPage(hash);
+      setCurrentPage(hash);
+      if (!isLoading) {
+        window.scrollTo(0, 0);
       }
     };
 
@@ -164,10 +158,14 @@ export default function App() {
 
     // Handle main pages
     switch (currentPage) {
+      case 'home':
+        return <HomePage />;
       case 'services':
         return <ServicesPage />;
       case 'projects':
         return <ProjectsPage />;
+      case 'work':
+        return <WorkPage />;
       case 'about':
         return <AboutPage />;
       case 'blog':
@@ -180,6 +178,14 @@ export default function App() {
   };
 
   return (
+    <>
+      {/* Header stays outside overflow-x-hidden so backdrop-filter / glass blur works */}
+      <Header
+        currentPage={currentPage}
+        onOpenSearch={() => setShowSearch(true)}
+        onOpenBooking={() => setShowBooking(true)}
+      />
+
     <div className="min-h-screen bg-background overflow-x-hidden relative">
       {/* Background Animation Elements */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
@@ -224,12 +230,6 @@ export default function App() {
         />
       </div>
 
-      <Header 
-        currentPage={currentPage}
-        onOpenSearch={() => setShowSearch(true)}
-        onOpenBooking={() => setShowBooking(true)}
-      />
-      
       {/* Notification System - Positioned in top-right */}
       <div className="fixed top-4 right-4 z-50">
         <NotificationSystem
@@ -241,27 +241,53 @@ export default function App() {
         />
       </div>
 
-      {/* Page Transition Overlay */}
-      <AnimatePresence>
-        {pageTransition && (
-          <motion.div
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: 1 }}
-            exit={{ scaleX: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 z-40 origin-left"
-          />
-        )}
-      </AnimatePresence>
-
-      <main className="relative z-10">
+      <main
+        className="relative z-10"
+        style={prefersReducedMotion ? undefined : { perspective: "1400px" }}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={currentPage}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.4, ease: "easeInOut" }}
+            className="transform-gpu will-change-transform"
+            initial={
+              prefersReducedMotion
+                ? { opacity: 0 }
+                : {
+                    opacity: 0,
+                    rotateY: 24,
+                    z: -200,
+                    scale: 0.94,
+                  }
+            }
+            animate={
+              prefersReducedMotion
+                ? { opacity: 1 }
+                : {
+                    opacity: 1,
+                    rotateY: 0,
+                    z: 0,
+                    scale: 1,
+                  }
+            }
+            exit={
+              prefersReducedMotion
+                ? { opacity: 0 }
+                : {
+                    opacity: 0,
+                    rotateY: -20,
+                    z: -160,
+                    scale: 0.96,
+                  }
+            }
+            transition={{
+              duration: prefersReducedMotion ? 0.2 : 0.52,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+            style={
+              prefersReducedMotion
+                ? undefined
+                : { transformStyle: "preserve-3d", transformOrigin: "50% 50%" }
+            }
           >
             {renderPage()}
           </motion.div>
@@ -275,7 +301,7 @@ export default function App() {
 
       {/* Floating Scroll to Top Button */}
       <motion.button
-        className="fixed bottom-8 right-8 w-14 h-14 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-full shadow-2xl z-30 flex items-center justify-center"
+        className="fixed bottom-8 right-8 w-14 h-14 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full shadow-2xl z-30 flex items-center justify-center"
         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -307,7 +333,7 @@ export default function App() {
         onOpenBooking={() => setShowBooking(true)}
       />
       <PerformanceMonitor />
-      <ActivityFeed />
     </div>
+    </>
   );
 }

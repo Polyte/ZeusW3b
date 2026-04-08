@@ -1,7 +1,6 @@
 import { motion } from "motion/react";
 import { useState } from "react";
-import zeusLogo from "figma:asset/dcf68d79f4c8a130a95c8ce6f948273175eadda7.png";
-import { LOGO_ANIMATIONS, SIZE_CONFIGS, LOGO_FONT_FAMILY } from "../constants/logoAnimations";
+import { LOGO_ANIMATIONS, SIZE_CONFIGS, LOGO_FONT_FAMILY, LOGO_IMAGE_SRC } from "../constants/logoAnimations";
 
 interface AnimatedLogoProps {
   onClick?: () => void;
@@ -54,7 +53,7 @@ export default function AnimatedLogo({
           }}
         >
           <img 
-            src={zeusLogo} 
+            src={LOGO_IMAGE_SRC} 
             alt="Zeus Labs Logo" 
             className="w-full h-full object-cover"
           />
@@ -81,14 +80,14 @@ export default function AnimatedLogo({
         >
           {/* Main Logo Text */}
           <motion.span
-            className={`${config.text} font-bold text-foreground tracking-wide leading-tight`}
+            className={`${config.text} font-bold uppercase text-foreground tracking-wide leading-tight`}
             style={LOGO_FONT_FAMILY}
             animate={isHovered ? { 
               color: ["var(--foreground)", "var(--blue-600)", "var(--foreground)"]
             } : {}}
             transition={{ duration: 0.5 }}
           >
-            ZeusLabs
+            ZEUSLABS
           </motion.span>
 
           {/* Subtitle - only show on medium and large sizes */}

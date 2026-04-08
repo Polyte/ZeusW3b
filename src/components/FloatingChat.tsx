@@ -3,8 +3,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { MessageCircle, X, Send, User, Headphones, Minimize2 } from "lucide-react";
-import { ChatService, type ChatMessage } from "../utils/database/services";
+import { MessageCircle, X, Send, Headphones, Minimize2 } from "lucide-react";
+import { ChatService } from "../utils/database/services";
+import {
+  buildZeusLabsChatMessages,
+  fetchDeepseekReply,
+} from "../utils/deepseekChat";
 
 interface Message {
   id: string;
@@ -58,7 +62,7 @@ export default function FloatingChat() {
             id: msg.id?.toString() || '',
             message: msg.message,
             sender: msg.sender as "customer" | "support",
-            senderName: msg.sender === 'customer' ? customerInfo.name : 'ZeusLabs Support',
+            senderName: msg.sender === 'customer' ? customerInfo.name : 'ZeusLabs AI',
             timestamp: msg.created_at || new Date().toISOString()
           }));
           
@@ -95,13 +99,14 @@ export default function FloatingChat() {
       setChatId(sessionId.toString());
       
       // Add welcome message
-      await ChatService.addMessage(sessionId, "support", `Hi ${customerInfo.name}! 👋 Welcome to ZeusLabs. How can we help you today?`);
+      const welcome = `Hi ${customerInfo.name}! 👋 I'm the ZeusLabs website assistant. Ask me about our services, projects, or how to get in touch — I answer from what's on this site.`;
+      await ChatService.addMessage(sessionId, "support", welcome);
       
       setMessages([{
         id: "welcome",
-        message: `Hi ${customerInfo.name}! 👋 Welcome to ZeusLabs. How can we help you today?`,
+        message: welcome,
         sender: "support",
-        senderName: "ZeusLabs Support",
+        senderName: "ZeusLabs AI",
         timestamp: new Date().toISOString()
       }]);
     } catch (error) {
@@ -130,32 +135,50 @@ export default function FloatingChat() {
         timestamp: new Date().toISOString()
       };
       
-      setMessages(prev => [...prev, newMessage]);
-      
-      // Simulate support response after a delay
-      setTimeout(() => {
-        const supportResponses = [
-          "Thanks for reaching out! Let me connect you with one of our specialists.",
-          "I understand your inquiry. One of our team members will be with you shortly.",
-          "Great question! I'm looking into this for you right now.",
-          "Thank you for contacting ZeusLabs. We'll get back to you within a few minutes.",
-          "I've received your message and I'm here to help. Let me check on that for you."
-        ];
-        
-        const randomResponse = supportResponses[Math.floor(Math.random() * supportResponses.length)];
-        
-        ChatService.addMessage(parseInt(chatId), "support", randomResponse).then(supportMessageId => {
-          setMessages(prev => [...prev, {
-            id: supportMessageId.toString(),
-            message: randomResponse,
-            sender: "support",
-            senderName: "ZeusLabs Support",
-            timestamp: new Date().toISOString()
-          }]);
-        });
-      }, 2000 + Math.random() * 3000); // Random delay between 2-5 seconds
+      const conversation = [...messages, newMessage];
+      setMessages(conversation);
+
+      const apiMessages = buildZeusLabsChatMessages(conversation);
+      const reply = await fetchDeepseekReply(apiMessages);
+      const supportMessageId = await ChatService.addMessage(
+        parseInt(chatId),
+        "support",
+        reply,
+      );
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: supportMessageId.toString(),
+          message: reply,
+          sender: "support",
+          senderName: "ZeusLabs AI",
+          timestamp: new Date().toISOString(),
+        },
+      ]);
     } catch (error) {
       console.error("Error sending message:", error);
+      const fallback =
+        "Sorry — I couldn't reach the assistant just now. Please try again in a moment, or use the Contact page on the site and we'll follow up.";
+      try {
+        const supportMessageId = await ChatService.addMessage(
+          parseInt(chatId),
+          "support",
+          fallback,
+        );
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: supportMessageId.toString(),
+            message: fallback,
+            sender: "support",
+            senderName: "ZeusLabs AI",
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+      } catch {
+        // ignore secondary storage errors
+      }
     } finally {
       setIsSending(false);
     }
@@ -284,7 +307,7 @@ export default function FloatingChat() {
                         className="text-sm text-foreground"
                         style={{ fontFamily: 'Josefin Sans, sans-serif' }}
                       >
-                        ZeusLabs Support
+                        ZeusLabs AI
                       </CardTitle>
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>

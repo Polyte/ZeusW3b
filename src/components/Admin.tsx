@@ -5,7 +5,7 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "./ui/sidebar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   BlogService, 
   ChatService, 
@@ -33,8 +33,20 @@ import {
   Image,
   Monitor,
   Phone,
-  Calendar
+  Calendar,
+  LayoutGrid,
+  Upload
 } from "lucide-react";
+import {
+  fetchWorkItems,
+  createWorkItem,
+  deleteWorkItemRemote,
+  uploadWorkGalleryFiles,
+  parseGalleryInput,
+  emitWorkPortfolioChange,
+  resolveWorkMediaUrl,
+  type WorkPortfolioItem,
+} from "../utils/workApi";
 
 interface BlogPost {
   id: string;
@@ -90,6 +102,7 @@ export default function Admin() {
   const [chats, setChats] = useState<ChatSession[]>([]);
   const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('dashboard');
   const [formData, setFormData] = useState({
     title: "",
@@ -106,13 +119,54 @@ export default function Admin() {
     demoUrl: "",
     status: "active"
   });
+  const [workItems, setWorkItems] = useState<WorkPortfolioItem[]>([]);
+  const [workFormData, setWorkFormData] = useState({
+    title: "",
+    description: "",
+    galleryRaw: "",
+    video: "",
+    url: "",
+    clientName: "",
+  });
+  const [uploadedGalleryUrls, setUploadedGalleryUrls] = useState<string[]>([]);
+  const galleryFileInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const PROJECTS_STORAGE_KEY = "zeuslabs-admin-projects-v1";
+
+  const refreshWorkItems = async () => {
+    try {
+      const items = await fetchWorkItems();
+      setWorkItems(items);
+    } catch {
+      setWorkItems([]);
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const section = params.get("section");
+    const allowed = [
+      "dashboard",
+      "pages",
+      "services",
+      "projects",
+      "work",
+      "blog",
+      "chat",
+      "forms",
+      "settings",
+    ];
+    if (section && allowed.includes(section)) {
+      setActiveSection(section);
+    }
+  }, []);
 
   useEffect(() => {
     fetchPosts();
     fetchChats();
     fetchServiceRequests();
     fetchProjects();
+    void refreshWorkItems();
     initializeSamplePosts();
     
     const dataInterval = setInterval(() => {
@@ -189,9 +243,20 @@ export default function Admin() {
     }
   };
 
-  const fetchProjects = async () => {
-    // Mock projects data - in real implementation this would fetch from backend
-    const mockProjects = [
+  const fetchProjects = () => {
+    try {
+      const raw = localStorage.getItem(PROJECTS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Project[];
+        if (Array.isArray(parsed) && parsed.length) {
+          setProjects(parsed);
+          return;
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+    const mockProjects: Project[] = [
       {
         id: "1",
         title: "E-commerce Platform",
@@ -200,7 +265,7 @@ export default function Admin() {
         category: "Web Development",
         image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d",
         demoUrl: "https://demo.example.com",
-        status: "completed"
+        status: "completed",
       },
       {
         id: "2",
@@ -209,10 +274,16 @@ export default function Admin() {
         technology: "Vue.js, Python, PostgreSQL",
         category: "Cybersecurity",
         image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b",
-        status: "active"
-      }
+        status: "active",
+      },
     ];
     setProjects(mockProjects);
+    localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(mockProjects));
+  };
+
+  const persistProjects = (next: Project[]) => {
+    setProjects(next);
+    localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(next));
   };
 
   const initializeSamplePosts = async () => {
@@ -286,11 +357,61 @@ export default function Admin() {
     setProjectFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleWorkInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setWorkFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleGalleryBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+    try {
+      const urls = await uploadWorkGalleryFiles(files);
+      setUploadedGalleryUrls((prev) => [...new Set([...prev, ...urls])]);
+    } catch (err) {
+      console.error(err);
+      alert("Upload failed. Is the API running? (npm run dev)");
+    }
+    e.target.value = "";
+  };
+
+  const handleWorkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!workFormData.title.trim()) return;
+    const fromText = parseGalleryInput(workFormData.galleryRaw);
+    const gallery = [...new Set([...uploadedGalleryUrls, ...fromText])];
+    try {
+      await createWorkItem({
+        title: workFormData.title.trim(),
+        description: workFormData.description.trim(),
+        gallery,
+        video: workFormData.video.trim(),
+        url: workFormData.url.trim(),
+        clientName: workFormData.clientName.trim(),
+      });
+      setWorkFormData({
+        title: "",
+        description: "",
+        galleryRaw: "",
+        video: "",
+        url: "",
+        clientName: "",
+      });
+      setUploadedGalleryUrls([]);
+      await refreshWorkItems();
+      emitWorkPortfolioChange();
+    } catch (err) {
+      console.error(err);
+      alert("Could not save. Start SQLite API: npm run dev");
+    }
+  };
+
   const sidebarMenuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'pages', label: 'Page Management', icon: <FileText className="w-4 h-4" /> },
     { id: 'services', label: 'Services', icon: <Wrench className="w-4 h-4" /> },
     { id: 'projects', label: 'Projects', icon: <Briefcase className="w-4 h-4" /> },
+    { id: 'work', label: 'Our Work', icon: <LayoutGrid className="w-4 h-4" /> },
     { id: 'blog', label: 'Blog Posts', icon: <Globe className="w-4 h-4" /> },
     { id: 'chat', label: 'Live Chat', icon: <MessageCircle className="w-4 h-4" /> },
     { id: 'forms', label: 'Form Submissions', icon: <Mail className="w-4 h-4" /> },
@@ -305,29 +426,91 @@ export default function Admin() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <Card
+          className="cursor-pointer transition-colors hover:bg-muted/40"
+          role="button"
+          tabIndex={0}
+          onClick={() => setActiveSection("blog")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setActiveSection("blog");
+            }
+          }}
+        >
           <CardContent className="p-4 text-center">
             <Globe className="w-8 h-8 text-blue-500 mx-auto mb-2" />
             <div className="text-2xl font-bold text-foreground">{posts.length}</div>
             <div className="text-sm text-muted-foreground">Blog Posts</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className="cursor-pointer transition-colors hover:bg-muted/40"
+          role="button"
+          tabIndex={0}
+          onClick={() => setActiveSection("projects")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setActiveSection("projects");
+            }
+          }}
+        >
           <CardContent className="p-4 text-center">
             <Briefcase className="w-8 h-8 text-green-500 mx-auto mb-2" />
             <div className="text-2xl font-bold text-foreground">{projects.length}</div>
             <div className="text-sm text-muted-foreground">Projects</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className="cursor-pointer transition-colors hover:bg-muted/40"
+          role="button"
+          tabIndex={0}
+          onClick={() => setActiveSection("work")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setActiveSection("work");
+            }
+          }}
+        >
+          <CardContent className="p-4 text-center">
+            <LayoutGrid className="w-8 h-8 text-cyan-500 mx-auto mb-2" />
+            <div className="text-2xl font-bold text-foreground">{workItems.length}</div>
+            <div className="text-sm text-muted-foreground">Our Work</div>
+          </CardContent>
+        </Card>
+        <Card
+          className="cursor-pointer transition-colors hover:bg-muted/40"
+          role="button"
+          tabIndex={0}
+          onClick={() => setActiveSection("chat")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setActiveSection("chat");
+            }
+          }}
+        >
           <CardContent className="p-4 text-center">
             <MessageCircle className="w-8 h-8 text-purple-500 mx-auto mb-2" />
             <div className="text-2xl font-bold text-foreground">{chats.length}</div>
             <div className="text-sm text-muted-foreground">Active Chats</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className="cursor-pointer transition-colors hover:bg-muted/40"
+          role="button"
+          tabIndex={0}
+          onClick={() => setActiveSection("forms")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setActiveSection("forms");
+            }
+          }}
+        >
           <CardContent className="p-4 text-center">
             <Users className="w-8 h-8 text-orange-500 mx-auto mb-2" />
             <div className="text-2xl font-bold text-foreground">{serviceRequests.length}</div>
@@ -351,10 +534,22 @@ export default function Admin() {
                     <p className="text-xs text-muted-foreground">by {post.author}</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="ghost">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setActiveSection("blog")}
+                      title="Edit in Blog Posts"
+                    >
                       <Edit className="w-4 h-4" />
                     </Button>
-                    <Button size="sm" variant="ghost">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => window.open(`${window.location.origin}/#blog`, "_blank", "noopener,noreferrer")}
+                      title="View site"
+                    >
                       <Eye className="w-4 h-4" />
                     </Button>
                   </div>
@@ -376,9 +571,19 @@ export default function Admin() {
                     <p className="font-medium text-foreground text-sm">{request.name}</p>
                     <p className="text-xs text-muted-foreground">{request.service}</p>
                   </div>
-                  <Badge variant="outline" className="text-xs">
-                    {request.status}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {request.status}
+                    </Badge>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setActiveSection("forms")}
+                    >
+                      Open
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -388,47 +593,66 @@ export default function Admin() {
     </div>
   );
 
-  const renderPageManagement = () => (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold text-foreground mb-2">Page Management</h2>
-        <p className="text-muted-foreground">Manage website pages and content</p>
-      </div>
+  const openSitePage = (route: string) => {
+    const url = `${window.location.origin}/#${route}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {[
-          { name: 'Home Page', icon: <Home className="w-6 h-6" />, status: 'published' },
-          { name: 'Services Page', icon: <Wrench className="w-6 h-6" />, status: 'published' },
-          { name: 'Projects Page', icon: <Briefcase className="w-6 h-6" />, status: 'published' },
-          { name: 'About Page', icon: <Users className="w-6 h-6" />, status: 'published' },
-          { name: 'Blog Page', icon: <Globe className="w-6 h-6" />, status: 'published' },
-          { name: 'Contact Page', icon: <Phone className="w-6 h-6" />, status: 'published' },
-        ].map((page) => (
-          <Card key={page.name}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-blue-500">{page.icon}</div>
-                <Badge variant="outline" className="text-xs">
-                  {page.status}
-                </Badge>
-              </div>
-              <h3 className="font-semibold text-foreground mb-2">{page.name}</h3>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline">
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit
-                </Button>
-                <Button size="sm" variant="outline">
-                  <Eye className="w-4 h-4 mr-2" />
-                  View
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+  const renderPageManagement = () => {
+    const sitePages = [
+      { name: "Home Page", icon: <Home className="w-6 h-6" />, status: "published" as const, route: "home", editSection: "dashboard" },
+      { name: "Services Page", icon: <Wrench className="w-6 h-6" />, status: "published" as const, route: "services", editSection: "services" },
+      { name: "Projects Page", icon: <Briefcase className="w-6 h-6" />, status: "published" as const, route: "projects", editSection: "projects" },
+      { name: "Our Work", icon: <LayoutGrid className="w-6 h-6" />, status: "published" as const, route: "work", editSection: "work" },
+      { name: "About Page", icon: <Users className="w-6 h-6" />, status: "published" as const, route: "about", editSection: "blog" },
+      { name: "Blog Page", icon: <Globe className="w-6 h-6" />, status: "published" as const, route: "blog", editSection: "blog" },
+      { name: "Contact Page", icon: <Phone className="w-6 h-6" />, status: "published" as const, route: "contact", editSection: "forms" },
+    ];
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-semibold text-foreground mb-2">Page Management</h2>
+          <p className="text-muted-foreground">Jump to a dashboard section or preview the live page.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sitePages.map((page) => (
+            <Card key={page.name}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-blue-500">{page.icon}</div>
+                  <Badge variant="outline" className="text-xs">
+                    {page.status}
+                  </Badge>
+                </div>
+                <h3 className="font-semibold text-foreground mb-2">{page.name}</h3>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    type="button"
+                    onClick={() => setActiveSection(page.editSection)}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    type="button"
+                    onClick={() => openSitePage(page.route)}
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    View
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderProjectManagement = () => (
     <div className="space-y-6">
@@ -437,19 +661,59 @@ export default function Admin() {
           <h2 className="text-2xl font-semibold text-foreground mb-2">Project Management</h2>
           <p className="text-muted-foreground">Manage portfolio projects and case studies</p>
         </div>
-        <Button>
+        <Button
+          type="button"
+          onClick={() =>
+            document.getElementById("admin-add-project")?.scrollIntoView({ behavior: "smooth" })
+          }
+        >
           <Plus className="w-4 h-4 mr-2" />
           Add Project
         </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+        <Card id="admin-add-project">
           <CardHeader>
             <CardTitle>Add New Project</CardTitle>
           </CardHeader>
           <CardContent>
-            <form className="space-y-4">
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!projectFormData.title.trim()) return;
+                const payload: Project = {
+                  id: editingProjectId ?? crypto.randomUUID(),
+                  title: projectFormData.title.trim(),
+                  description: projectFormData.description.trim(),
+                  technology: projectFormData.technology.trim(),
+                  category: projectFormData.category.trim(),
+                  image:
+                    projectFormData.image.trim() ||
+                    "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d",
+                  demoUrl: projectFormData.demoUrl.trim() || undefined,
+                  status: projectFormData.status || "active",
+                };
+                if (editingProjectId) {
+                  persistProjects(
+                    projects.map((p) => (p.id === editingProjectId ? payload : p)),
+                  );
+                  setEditingProjectId(null);
+                } else {
+                  persistProjects([payload, ...projects]);
+                }
+                setProjectFormData({
+                  title: "",
+                  description: "",
+                  technology: "",
+                  category: "",
+                  image: "",
+                  demoUrl: "",
+                  status: "active",
+                });
+              }}
+            >
               <div>
                 <label className="block text-sm text-foreground mb-1">Project Title</label>
                 <Input
@@ -497,8 +761,29 @@ export default function Admin() {
                 />
               </div>
               <Button type="submit" className="w-full">
-                Create Project
+                {editingProjectId ? "Save project" : "Create project"}
               </Button>
+              {editingProjectId && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => {
+                    setEditingProjectId(null);
+                    setProjectFormData({
+                      title: "",
+                      description: "",
+                      technology: "",
+                      category: "",
+                      image: "",
+                      demoUrl: "",
+                      status: "active",
+                    });
+                  }}
+                >
+                  Cancel edit
+                </Button>
+              )}
             </form>
           </CardContent>
         </Card>
@@ -519,22 +804,249 @@ export default function Admin() {
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">{project.description}</p>
                   <p className="text-xs text-muted-foreground mb-3">{project.technology}</p>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      onClick={() => {
+                        setEditingProjectId(project.id);
+                        setProjectFormData({
+                          title: project.title,
+                          description: project.description,
+                          technology: project.technology,
+                          category: project.category,
+                          image: project.image,
+                          demoUrl: project.demoUrl ?? "",
+                          status: project.status,
+                        });
+                        document.getElementById("admin-add-project")?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                    >
                       <Edit className="w-4 h-4 mr-1" />
                       Edit
                     </Button>
-                    <Button size="sm" variant="outline">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      onClick={() => {
+                        if (project.demoUrl) window.open(project.demoUrl, "_blank", "noopener,noreferrer");
+                        else openSitePage("projects");
+                      }}
+                    >
                       <Eye className="w-4 h-4 mr-1" />
                       View
                     </Button>
-                    <Button size="sm" variant="outline">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      onClick={() => {
+                        if (editingProjectId === project.id) {
+                          setEditingProjectId(null);
+                          setProjectFormData({
+                            title: "",
+                            description: "",
+                            technology: "",
+                            category: "",
+                            image: "",
+                            demoUrl: "",
+                            status: "active",
+                          });
+                        }
+                        persistProjects(projects.filter((p) => p.id !== project.id));
+                      }}
+                    >
                       <Trash className="w-4 h-4 mr-1" />
                       Delete
                     </Button>
                   </div>
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  const renderWorkPortfolioManagement = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-semibold text-foreground mb-2">Our Work</h2>
+        <p className="text-muted-foreground">
+          Stored in <strong className="text-foreground">SQLite</strong> (<code className="text-xs bg-muted px-1 rounded">data/zeuslabs.db</code>).
+          Bulk-upload images to the server; you can still paste extra image URLs below.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5" />
+              Add work
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleWorkSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm text-foreground mb-1">Title</label>
+                <Input
+                  name="title"
+                  value={workFormData.title}
+                  onChange={handleWorkInputChange}
+                  placeholder="Project or campaign name"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-foreground mb-1">Client name</label>
+                <Input
+                  name="clientName"
+                  value={workFormData.clientName}
+                  onChange={handleWorkInputChange}
+                  placeholder="Client or brand"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-foreground mb-1">Description</label>
+                <Textarea
+                  name="description"
+                  value={workFormData.description}
+                  onChange={handleWorkInputChange}
+                  placeholder="Short story, scope, results…"
+                  rows={4}
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-foreground mb-1">Gallery</label>
+                <input
+                  ref={galleryFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="sr-only"
+                  aria-hidden
+                  onChange={handleGalleryBulkUpload}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full mb-3"
+                  onClick={() => galleryFileInputRef.current?.click()}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload images (bulk)
+                </Button>
+                {uploadedGalleryUrls.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {uploadedGalleryUrls.map((u) => (
+                      <div
+                        key={u}
+                        className="relative w-16 h-16 rounded-md border border-border overflow-hidden group"
+                      >
+                        <img src={resolveWorkMediaUrl(u)} alt="" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          className="absolute inset-0 bg-black/50 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() =>
+                            setUploadedGalleryUrls((prev) => prev.filter((x) => x !== u))
+                          }
+                          aria-label="Remove image"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mb-1">Optional extra URLs (one per line)</p>
+                <Textarea
+                  name="galleryRaw"
+                  value={workFormData.galleryRaw}
+                  onChange={handleWorkInputChange}
+                  placeholder={"https://…/1.jpg\nhttps://…/2.jpg"}
+                  rows={3}
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-foreground mb-1">Video</label>
+                <Input
+                  name="video"
+                  value={workFormData.video}
+                  onChange={handleWorkInputChange}
+                  placeholder="MP4 URL, YouTube, or Vimeo link"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-foreground mb-1">Project URL</label>
+                <Input
+                  name="url"
+                  value={workFormData.url}
+                  onChange={handleWorkInputChange}
+                  placeholder="https://live-site.com"
+                />
+              </div>
+              <Button type="submit" className="w-full">
+                <Plus className="w-4 h-4 mr-2" />
+                Publish to Our Work
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Entries ({workItems.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4 max-h-[560px] overflow-y-auto pr-1">
+              {workItems.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No items yet.</p>
+              ) : (
+                workItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="border border-border/50 rounded-lg p-4 space-y-2"
+                  >
+                    <div className="flex justify-between gap-2">
+                      <div>
+                        <h4 className="font-semibold text-foreground">{item.title}</h4>
+                        <p className="text-xs text-muted-foreground">
+                          {item.clientName || "—"} · {new Date(item.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0"
+                        onClick={async () => {
+                          try {
+                            await deleteWorkItemRemote(item.id);
+                            await refreshWorkItems();
+                            emitWorkPortfolioChange();
+                          } catch {
+                            alert("Delete failed. Is the API running?");
+                          }
+                        }}
+                      >
+                        <Trash className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
+                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      {item.gallery.length > 0 && (
+                        <Badge variant="outline">{item.gallery.length} images</Badge>
+                      )}
+                      {item.video && <Badge variant="outline">Video</Badge>}
+                      {item.url && <Badge variant="outline">Link</Badge>}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -655,12 +1167,12 @@ export default function Admin() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {[
-          { name: 'Software Development', icon: '💻', pricing: 'From R280,000', requests: 15 },
-          { name: 'Web Development', icon: '🌐', pricing: 'From R150,000', requests: 22 },
-          { name: 'Cybersecurity', icon: '🔒', pricing: 'From R220,000', requests: 8 },
-          { name: 'Game Development', icon: '🎮', pricing: 'From R450,000', requests: 5 },
-          { name: 'Cloud Solutions', icon: '☁️', pricing: 'From R180,000', requests: 12 },
-          { name: 'Mobile Apps', icon: '📱', pricing: 'From R280,000', requests: 18 },
+          { name: "Software Development", icon: "💻", pricing: "From R280,000", requests: 15, route: "service-software-development" },
+          { name: "Web Development", icon: "🌐", pricing: "From R150,000", requests: 22, route: "service-web-development" },
+          { name: "Cybersecurity", icon: "🔒", pricing: "From R220,000", requests: 8, route: "service-cybersecurity" },
+          { name: "Game Development", icon: "🎮", pricing: "From R450,000", requests: 5, route: "service-game-development" },
+          { name: "Cloud Solutions", icon: "☁️", pricing: "From R180,000", requests: 12, route: "service-cloud-solutions" },
+          { name: "Mobile Apps", icon: "📱", pricing: "From R280,000", requests: 18, route: "service-mobile-apps" },
         ].map((service) => (
           <Card key={service.name}>
             <CardContent className="p-4">
@@ -674,11 +1186,23 @@ export default function Admin() {
                 <Badge variant="outline">{service.requests}</Badge>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="flex-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => openSitePage("services")}
+                >
                   <Edit className="w-4 h-4 mr-1" />
-                  Edit
+                  Services hub
                 </Button>
-                <Button size="sm" variant="outline" className="flex-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => openSitePage(service.route)}
+                >
                   <Eye className="w-4 h-4 mr-1" />
                   View
                 </Button>
@@ -964,6 +1488,8 @@ export default function Admin() {
         return renderServiceManagement();
       case 'projects':
         return renderProjectManagement();
+      case 'work':
+        return renderWorkPortfolioManagement();
       case 'blog':
         return renderBlogManagement();
       case 'chat':
@@ -1014,7 +1540,10 @@ export default function Admin() {
           <SidebarFooter className="p-4">
             <Button
               variant="outline"
-              onClick={() => window.location.href = '/'}
+              type="button"
+              onClick={() => {
+                window.location.href = `${window.location.origin}/#/home`;
+              }}
               className="w-full"
             >
               <Monitor className="w-4 h-4 mr-2" />

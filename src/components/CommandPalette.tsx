@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Command, Search, Home, Briefcase, Code, FileText, Mail, Calendar, Settings } from 'lucide-react';
+import { Command, Search, Home, Briefcase, Code, FileText, Mail, Calendar, Settings, LayoutGrid } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface CommandAction {
@@ -41,6 +41,13 @@ export default function CommandPalette({ onNavigate, onOpenSearch, onOpenBooking
       icon: Code,
       action: () => onNavigate('/projects'),
       shortcut: 'P'
+    },
+    {
+      id: 'work',
+      label: 'Our Work',
+      icon: LayoutGrid,
+      action: () => onNavigate('/work'),
+      shortcut: 'W'
     },
     {
       id: 'blog',

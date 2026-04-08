@@ -37,6 +37,7 @@ export default function Footer() {
     ],
     resources: [
       { name: "Blog", href: "#blog" },
+      { name: "Our Work", href: "#work" },
       { name: "Case Studies", href: "#projects" },
       { name: "Documentation", href: "#docs" },
       { name: "API Reference", href: "#api" },
@@ -103,7 +104,7 @@ export default function Footer() {
                 <Button
                   type="submit"
                   disabled={isSubscribed}
-                  className="h-12 px-8 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-medium tracking-wide transition-all duration-300"
+                  className="h-12 px-8 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium tracking-wide transition-all duration-300"
                   style={{ fontFamily: 'Josefin Sans, sans-serif' }}
                 >
                   {isSubscribed ? "Subscribed! ✓" : "Subscribe"}

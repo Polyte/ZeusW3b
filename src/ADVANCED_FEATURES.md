@@ -145,35 +145,6 @@ This document outlines all the advanced features integrated into the ZeusLabs we
 
 ---
 
-## 📰 Activity Feed
-
-### Features
-- **Recent Activities**: View latest site updates and activities
-- **Activity Types**: Projects, Blog posts, Chat messages, Bookings, Service requests
-- **Color-Coded Icons**: Visual indicators for each activity type
-- **Timestamp Display**: Relative time for each activity
-- **Slide-out Panel**: Full-height panel with smooth animations
-- **Activity Count Badge**: Shows number of recent activities
-
-### Activity Types
-- 🔵 **Project**: New projects added to portfolio
-- 🟣 **Blog**: New blog posts published
-- 🟢 **Chat**: New messages from clients
-- 🟡 **Booking**: Consultation bookings
-- 🔴 **Service**: New service requests
-
-### Usage
-- Click the Activity button in the bottom-right corner
-- View recent activities in the slide-out panel
-- Click outside or on the close button to dismiss
-
-### Technical Implementation
-- Component: `/components/ActivityFeed.tsx`
-- Mock data (ready for real-time backend integration)
-- Slide-out animation with backdrop
-
----
-
 ## 🎯 Integration Points
 
 All advanced features are integrated into the main App.tsx:
@@ -190,7 +161,6 @@ const [notifications, setNotifications] = useState<Notification[]>([]);
 <NotificationSystem notifications={notifications} ... />
 <CommandPalette onNavigate={...} onOpenSearch={...} onOpenBooking={...} />
 <PerformanceMonitor />
-<ActivityFeed />
 ```
 
 ---

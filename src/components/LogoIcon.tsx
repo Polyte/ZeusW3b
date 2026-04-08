@@ -1,7 +1,6 @@
 import { motion } from "motion/react";
 import { useState } from "react";
-import zeusLogo from "figma:asset/dcf68d79f4c8a130a95c8ce6f948273175eadda7.png";
-import { LOGO_ANIMATIONS, ICON_SIZE_CONFIGS } from "../constants/logoAnimations";
+import { LOGO_ANIMATIONS, ICON_SIZE_CONFIGS, LOGO_IMAGE_SRC } from "../constants/logoAnimations";
 
 interface LogoIconProps {
   onClick?: () => void;
@@ -55,7 +54,7 @@ export default function LogoIcon({
         {...logoMotionProps}
       >
         <img 
-          src={zeusLogo} 
+          src={LOGO_IMAGE_SRC} 
           alt="Zeus Labs Icon" 
           className="w-full h-full object-cover"
         />

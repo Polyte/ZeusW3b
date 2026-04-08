@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import zeusLogo from "figma:asset/dcf68d79f4c8a130a95c8ce6f948273175eadda7.png";
+import { LOGO_IMAGE_SRC } from "../constants/logoAnimations";
 
 interface PreloaderProps {
   onComplete: () => void;
@@ -62,7 +62,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
               }}
             >
               <img 
-                src={zeusLogo} 
+                src={LOGO_IMAGE_SRC} 
                 alt="Zeus Labs" 
                 className="w-full h-full object-cover"
               />
@@ -96,7 +96,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.5 }}
           >
-            ZeusLabs
+            ZEUSLABS
           </motion.h1>
 
           <motion.p

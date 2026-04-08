@@ -528,7 +528,7 @@ html {
   }
   
   .btn-purple {
-    @apply bg-purple-500 hover:bg-purple-600 text-white shadow-lg hover:shadow-xl transition-all duration-300;
+    @apply bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-300;
   }
   
   .btn-orange {
@@ -556,7 +556,7 @@ html {
   }
   
   .btn-gradient-purple {
-    @apply bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300;
+    @apply bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300;
   }
   
   .btn-gradient-orange {
