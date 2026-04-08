@@ -8,7 +8,7 @@ VITE_APP_DESCRIPTION=Professional Technology Solutions
 VITE_APP_URL=http://localhost:3000
 
 # Contact Information
-VITE_CONTACT_EMAIL=hello@zeuslabs.site
+VITE_CONTACT_EMAIL=info@zeuslabs.co.za
 VITE_CONTACT_PHONE=+27726911887
 VITE_CONTACT_ADDRESS=Sandton, Johannesburg, 2090, South Africa
 

@@ -506,7 +506,7 @@ export default function HomePage() {
                   className="btn-teal transition-all duration-300 h-14 px-10 text-lg font-medium tracking-wide"
                   style={{ fontFamily: 'Josefin Sans, sans-serif' }}
                 >
-                  View Our Work
+                  View Our Projects
                 </Button>
               </motion.div>
             </div>

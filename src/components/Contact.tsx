@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Mail, Phone, MapPin, Send, CheckCircle, AlertCircle } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ContactService } from "../utils/database/services";
 
 export default function Contact() {
@@ -17,12 +17,19 @@ export default function Contact() {
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
   const [statusMessage, setStatusMessage] = useState("");
 
-  const contactInfo = [
+  const contactInfo: {
+    icon: ReactNode;
+    title: string;
+    detail: string;
+    description: string;
+    href?: string;
+  }[] = [
     {
       icon: <Mail className="w-5 h-5" />,
       title: "Email Us",
-      detail: "hello@zeuslabs.site",
-      description: "Get in touch with our team"
+      detail: "info@zeuslabs.co.za",
+      description: "Get in touch with our team",
+      href: "mailto:info@zeuslabs.co.za",
     },
     {
       icon: <Phone className="w-5 h-5" />,
@@ -91,7 +98,16 @@ export default function Contact() {
                     {info.icon}
                   </div>
                   <CardTitle className="text-lg mb-2 text-foreground">{info.title}</CardTitle>
-                  <div className="text-primary mb-2">{info.detail}</div>
+                  {info.href ? (
+                    <a
+                      href={info.href}
+                      className="text-primary mb-2 inline-block font-medium hover:underline"
+                    >
+                      {info.detail}
+                    </a>
+                  ) : (
+                    <div className="text-primary mb-2">{info.detail}</div>
+                  )}
                   <CardDescription className="text-sm text-muted-foreground">
                     {info.description}
                   </CardDescription>

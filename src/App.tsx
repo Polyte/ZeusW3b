@@ -8,7 +8,6 @@ import ProjectsPage from "./components/pages/ProjectsPage";
 import AboutPage from "./components/pages/AboutPage";
 import BlogPage from "./components/pages/BlogPage";
 import ContactPage from "./components/pages/ContactPage";
-import WorkPage from "./components/pages/WorkPage";
 import ProjectDemo from "./components/projects/ProjectDemo";
 import ProjectCaseStudy from "./components/projects/ProjectCaseStudy";
 import ProjectCode from "./components/projects/ProjectCode";
@@ -165,7 +164,7 @@ export default function App() {
       case 'projects':
         return <ProjectsPage />;
       case 'work':
-        return <WorkPage />;
+        return <HomePage />;
       case 'about':
         return <AboutPage />;
       case 'blog':

@@ -603,7 +603,6 @@ export default function Admin() {
       { name: "Home Page", icon: <Home className="w-6 h-6" />, status: "published" as const, route: "home", editSection: "dashboard" },
       { name: "Services Page", icon: <Wrench className="w-6 h-6" />, status: "published" as const, route: "services", editSection: "services" },
       { name: "Projects Page", icon: <Briefcase className="w-6 h-6" />, status: "published" as const, route: "projects", editSection: "projects" },
-      { name: "Our Work", icon: <LayoutGrid className="w-6 h-6" />, status: "published" as const, route: "work", editSection: "work" },
       { name: "About Page", icon: <Users className="w-6 h-6" />, status: "published" as const, route: "about", editSection: "blog" },
       { name: "Blog Page", icon: <Globe className="w-6 h-6" />, status: "published" as const, route: "blog", editSection: "blog" },
       { name: "Contact Page", icon: <Phone className="w-6 h-6" />, status: "published" as const, route: "contact", editSection: "forms" },
@@ -1440,7 +1439,7 @@ export default function Admin() {
             </div>
             <div>
               <label className="block text-sm text-foreground mb-1">Contact Email</label>
-              <Input defaultValue="hello@zeuslabs.site" placeholder="Contact email" />
+              <Input defaultValue="info@zeuslabs.co.za" placeholder="Contact email" />
             </div>
             <div>
               <label className="block text-sm text-foreground mb-1">Phone Number</label>

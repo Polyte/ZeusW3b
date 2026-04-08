@@ -1,10 +1,13 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { ArrowRight } from "lucide-react";
 import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
-import { STOCK_IMAGES } from "../constants/stockImages";
 
 const HERO_VIDEO_SRC = "/we-got-you.mp4";
+
+/** Smaller than 1920w — faster poster/LCP than the old stockImages.hero.code URL */
+const HERO_POSTER_URL =
+  "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=960&h=540&fit=crop&auto=format&q=65";
 
 const HERO_PARALLAX = {
   mediaYMax: 240,
@@ -15,8 +18,9 @@ const HERO_PARALLAX = {
 export default function HeroCarousel() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
-  const reduceMotion = useReducedMotion();
-  const cutParallax = reduceMotion === true;
+  const reduceMotion = useReducedMotion() === true;
+  const cutParallax = reduceMotion;
+  const [loadVideo, setLoadVideo] = useState(false);
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -41,12 +45,49 @@ export default function HeroCarousel() {
   const contentOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0.08]);
 
   useEffect(() => {
+    if (reduceMotion) return;
+    const nav = navigator as Navigator & { connection?: { saveData?: boolean } };
+    if (nav.connection?.saveData) return;
+
+    const start = () => setLoadVideo(true);
+    let idleId = 0;
+    let timeoutId = 0;
+
+    if (typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(start, { timeout: 1800 });
+    } else {
+      timeoutId = window.setTimeout(start, 450);
+    }
+
+    return () => {
+      if (idleId !== 0 && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== 0) clearTimeout(timeoutId);
+    };
+  }, [reduceMotion]);
+
+  useEffect(() => {
+    if (!loadVideo || reduceMotion) return;
     const el = videoRef.current;
     if (!el) return;
+    el.load();
     el.play().catch(() => {
-      /* autoplay may require muted + playsInline (set below) */
+      /* autoplay policies */
     });
-  }, []);
+  }, [loadVideo, reduceMotion]);
+
+  useEffect(() => {
+    if (!loadVideo || reduceMotion) return;
+    const el = videoRef.current;
+    if (!el) return;
+    const onVis = () => {
+      if (document.hidden) el.pause();
+      else el.play().catch(() => {});
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [loadVideo, reduceMotion]);
 
   return (
     <div
@@ -59,15 +100,17 @@ export default function HeroCarousel() {
       >
         <video
           ref={videoRef}
-          autoPlay
+          autoPlay={loadVideo && !reduceMotion}
           muted
           loop
           playsInline
-          preload="auto"
-          poster={STOCK_IMAGES.hero.code}
+          preload={loadVideo ? "metadata" : "none"}
+          poster={HERO_POSTER_URL}
           className="pointer-events-none absolute inset-0 h-full w-full object-cover scale-110"
         >
-          <source src={HERO_VIDEO_SRC} type="video/mp4" />
+          {loadVideo && !reduceMotion ? (
+            <source src={HERO_VIDEO_SRC} type="video/mp4" />
+          ) : null}
         </video>
         <div className="absolute inset-0 bg-gradient-to-br from-blue-950/75 via-slate-950/65 to-purple-950/75" />
         <div className="absolute inset-0 bg-black/25" />
